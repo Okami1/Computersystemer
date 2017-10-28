@@ -1,0 +1,70 @@
+dp PC(out pc_out : ns(5)){
+	reg a : ns(5);
+
+	always{
+		a = a + 1;
+		pc_out = a + 1;
+	}
+	
+}
+
+ipblock instmem(in address : ns(5);
+				in wr,rd : ns(1);
+				in idata : ns(32);
+				out odata : ns(32)){
+
+	iptype "ram";
+	ipparm "size=64";
+	ipparm "wl=32";
+	ipparm "file=program.txt";
+}
+
+dp InstructionFetch(out odata : ns(32)){
+	sig counter : ns(5);
+
+	use PC(counter);
+	use instmem(counter, 0, 1, 0, odata);
+}
+
+dp Controller(in opcode : ns(5); in zero, neg : ns(1); out jflag, iflag, storeflag: ns(1); out alufunc : ns(3)){
+	always {
+		alufunc = opcode[4] == 0 ? opcode[0:2] : 0;
+		storeflag = opcode[4] == 0;
+		iflag = opcode[3];
+		jflag = opcode[4] == 1 & opcode[3] == 1 ? 
+								(opcode[0] == 1 ? 1 : 
+								(opcode[1] == 1 & zero == 1 ? 1 : 
+								(opcode[2] == 1 & neg == 1 ? 1 : 0))) : 0;
+	}
+}
+
+dp System(in zero, neg : ns(1); out jflag, iflag, storeflag : ns(1); out alufunc : ns(3)){
+	sig odata : ns(32);
+
+	use InstructionFetch(odata);
+	use Controller(odata[27:31], zero, neg, jflag, iflag, storeflag, alufunc);
+}
+
+dp testSys(out zero, neg : ns(1); in jflag, iflag, storeflag : ns(1); in alufunc : ns(3)) { 
+	always{
+		$display($bin, "Alufunc:", alufunc);
+	}
+
+	sfg test_0 {zero = 0; neg = 0;}
+	sfg test_1 {zero = 0; neg = 0;}
+	sfg test_2 {zero = 0; neg = 0;}
+}
+
+// state machine to control testbench
+fsm f_testbench(testSys){
+	initial s0; // begin with state s0
+	state s1, s2; // other states are: s1, s2
+	@s0 (test_0) -> s1; // run test_0 and go to s1
+	@s1 (test_1) -> s2; // run test_1 and go to s2
+	@s2 (test_2) -> s0;
+}
+
+system program{
+	System(zero, neg, jflag, iflag, storeflag, alufunc);
+	testSys(zero, neg, jflag, iflag, storeflag, alufunc);
+}
