@@ -1,11 +1,17 @@
-dp PC(out pc_out : ns(5)){
-	reg a : ns(5);
+dp PC(in altAddress : ns(16);  in select : ns(1);  out pc_out : ns(16)){
+	reg a : ns(16);
 
 	always{
 		a = a + 1;
-		pc_out = a + 1;
+		pc_out = select ? altAddress : a + 1;
 	}
 	
+}
+
+dp Multiplexer(in a, b : tc(32); in select : ns(1); out r : tc(32)) {
+	always {
+		r = select ? a : b;
+	}
 }
 
 dp Registerfile(in asel, bsel, storesel : ns(3); in storeenable : ns(1); in storedata : tc(32); out a, b : tc(32)) {
@@ -47,7 +53,7 @@ dp Registerfile(in asel, bsel, storesel : ns(3); in storeenable : ns(1); in stor
 	}
 }
 
-ipblock instmem(in address : ns(5);
+ipblock instmem(in address : ns(16);
 				in wr,rd : ns(1);
 				in idata : ns(32);
 				out odata : ns(32)){
@@ -58,10 +64,10 @@ ipblock instmem(in address : ns(5);
 	ipparm "file=program.txt";
 }
 
-dp InstructionFetch(out odata : ns(32)){
-	sig counter : ns(5);
+dp InstructionFetch(in altAddress : ns(16);  in select : ns(1);  out odata : ns(32)){
+	sig counter : ns(16);
 
-	use PC(counter);
+	use PC(altAddress, select, counter);
 	use instmem(counter, 0, 1, 0, odata);
 }
 
@@ -69,7 +75,7 @@ dp Controller(in opcode : ns(5); in zero, neg : ns(1); out jflag, iflag, storefl
 	always {
 		alufunc = opcode[4] == 0 ? opcode[0:2] : 0;
 		storeflag = opcode[4] == 0;
-		iflag = opcode[3];
+		iflag = opcode[4] == 0 & opcode[3] == 1;
 		jflag = opcode[4] == 1 & opcode[3] == 1 ? 
 								(opcode[0] == 1 ? 1 : 
 								(opcode[1] == 1 & zero == 1 ? 1 : 
@@ -77,20 +83,24 @@ dp Controller(in opcode : ns(5); in zero, neg : ns(1); out jflag, iflag, storefl
 	}
 }
 
-dp System(in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns(1);   out alufunc : ns(3);   out a, b : tc(32)){
+dp System(in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns(1);   out alufunc : ns(3);   out a,r : tc(32)){
 	sig odata : ns(32);
 	sig storeflag : ns(1);
+	sig b : tc(32);
 
-	use InstructionFetch(odata);
+	use InstructionFetch(odata[11:26], jflag, odata);
 	use Controller(odata[27:31], zero, neg, jflag, iflag, storeflag, alufunc);
-	use Registerfile(odata[24:26], odata[20:22], odata[22:24], storeflag, storedata, a, b);
+	use Registerfile(odata[18:20], odata[21:23], odata[24:26], storeflag, storedata, a, b);
 
+	use Multiplexer(odata[13:23], b, iflag, r);
+	
+	//use ALUFlags();
 
 }
 
-dp testSys(out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : ns(1);   in alufunc : ns(3);   in a, b : tc(32)) { 
+dp testSys(out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : ns(1);   in alufunc : ns(3);   in a,r : tc(32)) { 
 	always{
-		$display($bin, "Alufunc:", alufunc,  " Jflag:", jflag,  " Iflag:", iflag,  " a:", a,  " b:", b);
+		$display($bin, "Alufunc:", alufunc,  " Jflag:", jflag,  " Iflag:", iflag, $dec,  " a:", a,  " r:", r);
 	}
 
 	sfg test_0 {zero = 0; neg = 0; storedata = 1;}
@@ -122,6 +132,6 @@ fsm f_testbench(testSys){
 }
 
 system program{
-	System(zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, b);
-	testSys(zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, b);
+	System(zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r);
+	testSys(zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r);
 }
