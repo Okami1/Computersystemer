@@ -13,13 +13,9 @@ dp CPU(
            in M_dataoutrdy : ns(1)
            //in stall_cpu : ns(1)
        ){
-       		// Implement your CPU here. 
-       		// Please remove the code below (it is only added such that that the platform can run without faults)       
-       always{
-       		M_datain = 0;
-       		M_cmd = 0;
-       		M_datainrdy = 0;
-       }       
+       
+
+       
 }
 
 ////////////////////////////

@@ -1,8 +1,11 @@
+$option "vcd"
+
 dp PC(in altAddress : ns(16);  in select : ns(1);  out pc_out : ns(16)){
 	reg a : ns(16);
 
+	$trace(a, "Testtraces/address.seq");
 	always{
-		$display($dec, "pc_out:",pc_out);
+		//$display($dec, "pc_out:",pc_out);
 		pc_out = select ? altAddress : a + 1;
 		a = pc_out;
 	}
@@ -16,17 +19,25 @@ dp Multiplexer(in a, b : tc(32); in select : ns(1); out r : tc(32)) {
 }
 
 dp ALUFlags(in a, b : tc(32); in select : ns(3); out r : tc(32); out n, z : ns(1)) {
+	reg zero, neg : ns(1);
 	sig x : tc(32);
 	sig y : tc(32);
-	
+	sig xx : tc(32);
+
 	always {
-		x = select[0] ? b : a;
-		y = select[0] ? b-a : a-b;
+		x = select[2] ? a : a+b;		
+		y = select[0] ? a >> b : b;
+		xx = select[1] ? y : x;
 
-		r = select[1] ? x : y;
+		r = select[2] ? xx : select[1] ? a-b : xx;
+		
+		zero = r ? 0 : 1;
+		neg = r[31];
 
-		n = r[31];
-		z = r ? 0 : 1;
+		n = neg;
+		z = zero;
+
+		//$display($dec, "Out:",r, " Zero:",z, " Neg:",n);
 	}
 }
 
@@ -40,6 +51,9 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
 	reg seven : tc(32);
 	reg eight : tc(32);
 	
+	$trace(storesel, "Testtraces/storesel.seq");
+	$trace(two, "Testtraces/two.seq");
+	$trace(three, "Testtraces/three.seq");
 	always {
 		a = asel==0 ? one : 
 		asel==1 ? two : 
@@ -66,6 +80,8 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
 		six = storesel==5 & storeenable ? storedata : six;
 		seven = storesel==6 & storeenable ? storedata : seven;
 		eight = storesel==7 & storeenable ? storedata : eight;
+
+		$display($dec, "Two:",two, " three:",three);
 	}
 }
 
@@ -77,7 +93,7 @@ ipblock instmem(in address : ns(16);
 	iptype "ram";
 	ipparm "size=64";
 	ipparm "wl=32";
-	ipparm "file=program.txt";
+	ipparm "file=program2.txt";
 }
 
 dp InstructionFetch(in altAddress : ns(16);  in select : ns(1);  out odata : ns(32)){
@@ -87,45 +103,61 @@ dp InstructionFetch(in altAddress : ns(16);  in select : ns(1);  out odata : ns(
 	use instmem(counter, 0, 1, 0, odata);
 }
 
-dp Controller(in opcode : ns(5); in zero, neg : ns(1); out jflag, iflag, storeflag: ns(1); out alufunc : ns(3)){
+dp Controller(in opcode : ns(5); in zero, neg : ns(1); out jflag, iflag, storeflag: ns(1); out alufunc : ns(3); out dataflag : ns(1)){
+
 	always {
 		alufunc = opcode[4] == 0 ? opcode[0:2] : 0;
 		storeflag = opcode[4] ? opcode[3] == 0 & opcode[0] : 1;
 		iflag = opcode[4] == 0 & opcode[3] == 1;
-		jflag = opcode[4] == 1 & opcode[3] == 1 ? 
-								(opcode[0] == 1 ? 1 : 
-								(opcode[1] == 1 & zero == 1 ? 1 : 
-								(opcode[2] == 1 & neg == 1 ? 1 : 0))) : 0;
+		jflag = opcode[4] == 1 & opcode[3] == 1 ? (opcode[0] == 1 ? 1 : (opcode[1] == 1 & zero == 1 ? 1 : (opcode[2] == 1 & neg == 1 ? 1 : 0))) : 0;
+
+		dataflag = opcode[4] & opcode[3] == 0;
+		alufunc = opcode[4] & opcode[3] == 0 ? (opcode[0] ? 4 : 5) : alufunc;
 	}
 }
 
-dp System(in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns(1);   out alufunc : ns(3);   out a,r : tc(32)){
+dp System(){ //in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns(1);   out alufunc : ns(3);   out a,r : tc(32)
 	sig odata : ns(32);
 	sig storeflag : ns(1);
 	sig b : tc(32);
 
-	//sig a : tc(32);
-	//sig r : tc(32);
-	//sig alufunc : ns(3);
+	sig a : tc(32);
+	sig r : tc(32);
+	sig alufunc : ns(3);
+	sig storedata : tc(32);
+	sig neg : ns(1);
+	sig zero : ns(1);
+	sig jflag : ns(1);
+	sig iflag : ns(1);
+	
+	sig dataflag : ns(1);
 
+	$trace(zero, "Testtraces/zero.seq");
+	$trace(neg, "Testtraces/neg.seq");
+
+	$trace(jflag, "Testtraces/jflag.seq");
+	$trace(alufunc, "Testtraces/alufunc.seq");
+	$trace(storeflag, "Testtraces/storeflag.seq");
 
 	use InstructionFetch(odata[11:26], jflag, odata);
-	use Controller(odata[27:31], zero, neg, jflag, iflag, storeflag, alufunc);
+	use Controller(odata[27:31], zero, neg, jflag, iflag, storeflag, alufunc, dataflag);
 	use Registerfile(odata[24:26], odata[21:23], odata[18:20], storeflag, storedata, a, b);
 
-	use Multiplexer(odata[13:23], b, iflag, r);
+	use Multiplexer(odata[10:20], b, iflag, r);
 	
-	//use ALUFlags(a, r, alufunc, out r : tc(32); out n, z : ns(1));
+	use ALUFlags(a, r, alufunc, storedata, neg, zero);
+
+	// use Multiplexer(); Tag resultat fra ALU'en undtagen, hvis der er snakke om en load funktion
 
 }
 
-dp testSys(out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : ns(1);   in alufunc : ns(3);   in a,r : tc(32)) { 
-	always{
-		$display($bin, "Alufunc:", alufunc,  " Jflag:", jflag,  " Iflag:", iflag, $dec,  " a:", a,  " r:", r);
-	}
+dp testSys() { //out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : ns(1);   in alufunc : ns(3);   in a,r : tc(32)
+	//always{
+	//	$display($bin, "Alufunc:", alufunc,  " Jflag:", jflag,  " Iflag:", iflag, $dec,  " a:", a,  " r:", r);
+	//}
 
-	sfg test_0 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_1 {zero = 0; neg = 0; storedata = 1;}
+	sfg test_0 {}
+	sfg test_1 {}
 }
 
 // state machine to control testbench
@@ -137,6 +169,6 @@ fsm f_testbench(testSys){
 }
 
 system program{
-	System(zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r);
-	testSys(zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r);
+	System; //zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r
+	testSys;
 }
