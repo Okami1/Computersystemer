@@ -2,9 +2,9 @@ dp PC(in altAddress : ns(16);  in select : ns(1);  out pc_out : ns(16)){
 	reg a : ns(16);
 
 	always{
-		//$display($dec, "pc_out:",pc_out);
-		a = select ? altAddress : a + 1;
-		pc_out = select ? a : a + 1;
+		$display($dec, "pc_out:",pc_out);
+		pc_out = select ? altAddress : a + 1;
+		a = pc_out;
 	}
 	
 }
@@ -104,13 +104,18 @@ dp System(in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns
 	sig storeflag : ns(1);
 	sig b : tc(32);
 
+	//sig a : tc(32);
+	//sig r : tc(32);
+	//sig alufunc : ns(3);
+
+
 	use InstructionFetch(odata[11:26], jflag, odata);
 	use Controller(odata[27:31], zero, neg, jflag, iflag, storeflag, alufunc);
 	use Registerfile(odata[24:26], odata[21:23], odata[18:20], storeflag, storedata, a, b);
 
 	use Multiplexer(odata[13:23], b, iflag, r);
 	
-	//use ALUFlags();
+	//use ALUFlags(a, r, alufunc, out r : tc(32); out n, z : ns(1));
 
 }
 
@@ -121,14 +126,6 @@ dp testSys(out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : 
 
 	sfg test_0 {zero = 0; neg = 0; storedata = 1;}
 	sfg test_1 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_2 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_3 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_4 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_5 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_6 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_7 {zero = 0; neg = 0; storedata = 1;}
-	//sfg test_8 {zero = 1; neg = 0; storedata = 1;}
-	//sfg test_9 {zero = 0; neg = 1; storedata = 1;}
 }
 
 // state machine to control testbench
@@ -136,15 +133,7 @@ fsm f_testbench(testSys){
 	initial s0; // begin with state s0
 	state s1, s2, s3, s4, s5, s6, s7, s8, s9;
 	@s0 (test_0) -> s1; // run test_0 and go to s1
-	@s1 (test_1) -> s2; // run test_1 and go to s2
-	@s2 (test_2) -> s3;
-	@s3 (test_3) -> s4;
-	@s4 (test_4) -> s5;
-	@s5 (test_5) -> s6;
-	@s6 (test_6) -> s7;
-	@s7 (test_7) -> s0;
-	//@s8 (test_8) -> s9;
-	//@s9 (test_9) -> s0;
+	@s1 (test_1) -> s0; // run test_1 and go to s2
 }
 
 system program{
