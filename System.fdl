@@ -2,8 +2,9 @@ dp PC(in altAddress : ns(16);  in select : ns(1);  out pc_out : ns(16)){
 	reg a : ns(16);
 
 	always{
-		a = a + 1;
-		pc_out = select ? altAddress : a + 1;
+		//$display($dec, "pc_out:",pc_out);
+		a = select ? altAddress : a + 1;
+		pc_out = select ? a : a + 1;
 	}
 	
 }
@@ -14,7 +15,22 @@ dp Multiplexer(in a, b : tc(32); in select : ns(1); out r : tc(32)) {
 	}
 }
 
-dp Registerfile(in asel, bsel, storesel : ns(3); in storeenable : ns(1); in storedata : tc(32); out a, b : tc(32)) {
+dp ALUFlags(in a, b : tc(32); in select : ns(3); out r : tc(32); out n, z : ns(1)) {
+	sig x : tc(32);
+	sig y : tc(32);
+	
+	always {
+		x = select[0] ? b : a;
+		y = select[0] ? b-a : a-b;
+
+		r = select[1] ? x : y;
+
+		n = r[31];
+		z = r ? 0 : 1;
+	}
+}
+
+dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in storedata : tc(32); out a, b : tc(32)) {
 	reg one : tc(32);	
 	reg two : tc(32);  	
 	reg three : tc(32);	
@@ -74,7 +90,7 @@ dp InstructionFetch(in altAddress : ns(16);  in select : ns(1);  out odata : ns(
 dp Controller(in opcode : ns(5); in zero, neg : ns(1); out jflag, iflag, storeflag: ns(1); out alufunc : ns(3)){
 	always {
 		alufunc = opcode[4] == 0 ? opcode[0:2] : 0;
-		storeflag = opcode[4] == 0;
+		storeflag = opcode[4] ? opcode[3] == 0 & opcode[0] : 1;
 		iflag = opcode[4] == 0 & opcode[3] == 1;
 		jflag = opcode[4] == 1 & opcode[3] == 1 ? 
 								(opcode[0] == 1 ? 1 : 
@@ -90,7 +106,7 @@ dp System(in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns
 
 	use InstructionFetch(odata[11:26], jflag, odata);
 	use Controller(odata[27:31], zero, neg, jflag, iflag, storeflag, alufunc);
-	use Registerfile(odata[18:20], odata[21:23], odata[24:26], storeflag, storedata, a, b);
+	use Registerfile(odata[24:26], odata[21:23], odata[18:20], storeflag, storedata, a, b);
 
 	use Multiplexer(odata[13:23], b, iflag, r);
 	
@@ -111,14 +127,14 @@ dp testSys(out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : 
 	sfg test_5 {zero = 0; neg = 0; storedata = 1;}
 	sfg test_6 {zero = 0; neg = 0; storedata = 1;}
 	sfg test_7 {zero = 0; neg = 0; storedata = 1;}
-	sfg test_8 {zero = 1; neg = 0; storedata = 1;}
-	sfg test_9 {zero = 0; neg = 1; storedata = 1;}
+	//sfg test_8 {zero = 1; neg = 0; storedata = 1;}
+	//sfg test_9 {zero = 0; neg = 1; storedata = 1;}
 }
 
 // state machine to control testbench
 fsm f_testbench(testSys){
 	initial s0; // begin with state s0
-	state s1, s2, s3, s4, s5, s6, s7, s8, s9; // other states are: s1, s2
+	state s1, s2, s3, s4, s5, s6, s7, s8, s9;
 	@s0 (test_0) -> s1; // run test_0 and go to s1
 	@s1 (test_1) -> s2; // run test_1 and go to s2
 	@s2 (test_2) -> s3;
@@ -126,9 +142,9 @@ fsm f_testbench(testSys){
 	@s4 (test_4) -> s5;
 	@s5 (test_5) -> s6;
 	@s6 (test_6) -> s7;
-	@s7 (test_7) -> s8;
-	@s8 (test_8) -> s9;
-	@s9 (test_9) -> s0;
+	@s7 (test_7) -> s0;
+	//@s8 (test_8) -> s9;
+	//@s9 (test_9) -> s0;
 }
 
 system program{
