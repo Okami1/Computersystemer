@@ -1,0 +1,21 @@
+Test 1:
+ADDI
+ADD
+SUB
+
+Test 2:
+Subi
+Addi
+Divi
+
+Test 3:
+ADDI
+Store
+Load
+
+Test 4:
+Jump
+ADDI
+JumpZero
+SUBI
+JumpNeg

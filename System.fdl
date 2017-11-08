@@ -42,7 +42,7 @@ dp ALUFlags(in a, b : tc(32); in select : ns(3); out r : tc(32); out n, z : ns(1
 		n = neg;
 		z = zero;
 
-		//$display($dec, "Out:",r);
+		$display($dec, "Out:", r, "  Alufunc:", select);
 	}
 } // a = 4, b = 5
 
@@ -86,7 +86,7 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
 		seven = storesel==6 & storeenable ? storedata : seven;
 		eight = storesel==7 & storeenable ? storedata : eight;
 
-		//$display($dec, "two:", two, " a:",a, " b:",b);
+		//$display($dec, "Two:", two, " Three:", three, " Four:", four);
 	}
 }
 
@@ -98,7 +98,7 @@ ipblock instmem(in address : ns(16);
 	iptype "ram";
 	ipparm "size=64";
 	ipparm "wl=32";
-	ipparm "file=program2.txt";
+	ipparm "file=program4.txt";
 }
 
 dp InstructionFetch(in altAddress : ns(16);  in select, stall : ns(1);  out odata : ns(32)){
@@ -118,13 +118,11 @@ dp Controller(in opcode : ns(5); in zero, neg, dataoutrdy : ns(1); out jflag, if
 		memoryFlag = opcode[4] & opcode[3] == 0 & opcode[0];
 		stall = opcode[4] & opcode[3] == 0 & opcode[0] & dataoutrdy == 0;
 
-		//dataflag = opcode[4] & opcode[3] == 0;
-
-		$display($dec, "alufunc:",alufunc);
+		//$display($dec, "alufunc:",alufunc);
 	}
 }
 
-dp System(in dataoutrdy: ns(1); in memoryIn : tc(32); out toBus : ns(11); out datainrdy : ns(1)){ 
+dp System(in dataoutrdy: ns(1); in memoryIn : tc(32); out toBus : ns(11); out datainrdy : ns(1);   out targetId : ns(4); out targetAddress : ns(28)){ 
 		//in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns(1);   out alufunc : ns(3);   out a,r : tc(32)
 	sig odata : ns(32);
 	sig storeflag : ns(1);
@@ -162,13 +160,16 @@ dp System(in dataoutrdy: ns(1); in memoryIn : tc(32); out toBus : ns(11); out da
 	// Indsæt funktionalitet til at stoppe.
 
 	always{
+		targetId = 2;
+		targetAddress = odata[10:20];
 		datainrdy = odata[31] & odata[30] == 0 & odata[28];
 		toBus = odata[10:20];
-		$display($bin, "ToBus:", toBus);
+
+		$display($dec, "DataIn:", toBus, "  TargetID:", targetId, "  TargetAddress:", targetAddress, "  DatainRdy:", datainrdy);
 	}
 }
 
-dp testSys(out dataoutrdy: ns(1); out memoryIn : tc(32); in toBus : ns(11); in datainrdy : ns(1)) {
+dp testSys(out dataoutrdy: ns(1); out memoryIn : tc(32); in toBus : ns(11); in datainrdy : ns(1); in targetId : ns(4); in targetAddress : ns(28)) {
 		//out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : ns(1);   in alufunc : ns(3);   in a,r : tc(32)
 	//always{
 	//	$display($bin, "Alufunc:", alufunc,  " Jflag:", jflag,  " Iflag:", iflag, $dec,  " a:", a,  " r:", r);
@@ -188,6 +189,6 @@ fsm f_testbench(testSys){
 }
 
 system program{
-	System(dataoutrdy, memoryIn, toBus, datainrdy); //zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r
-	testSys(dataoutrdy, memoryIn, toBus, datainrdy);
+	System(dataoutrdy, memoryIn, toBus, datainrdy, targetId, targetAddress); //zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r
+	testSys(dataoutrdy, memoryIn, toBus, datainrdy, targetId, targetAddress);
 }
