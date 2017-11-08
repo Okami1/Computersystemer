@@ -42,7 +42,7 @@ dp ALUFlags(in a, b : tc(32); in select : ns(3); out r : tc(32); out n, z : ns(1
 		n = neg;
 		z = zero;
 
-		$display($dec, "Out:", r, "  Alufunc:", select);
+		//$display($dec, "Out:", r, "  Alufunc:", select);
 	}
 } // a = 4, b = 5
 
@@ -86,7 +86,7 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
 		seven = storesel==6 & storeenable ? storedata : seven;
 		eight = storesel==7 & storeenable ? storedata : eight;
 
-		//$display($dec, "Two:", two, " Three:", three, " Four:", four);
+		//$display($dec, "R1:", two, " R2:", three, " R3:", four);
 	}
 }
 
@@ -109,21 +109,19 @@ dp InstructionFetch(in altAddress : ns(16);  in select, stall : ns(1);  out odat
 }
 
 dp Controller(in opcode : ns(5); in zero, neg, dataoutrdy : ns(1); out jflag, iflag, storeflag, memoryFlag, stall : ns(1); out alufunc : ns(3)){ 
-		//out dataflag : ns(1)
 	always {
-		alufunc = opcode[4] == 0 ? opcode[0:2] : (opcode[3] == 0 ? (opcode[0] ? 4 : 5) : 0);
+		alufunc = opcode[4] == 0 ? opcode[0:2] : 0;
 		storeflag = opcode[4] ? (opcode[3] == 0 & opcode[0]) & dataoutrdy : 1; //Hvis parentesen er sand, men dataready flag = 0, store ikke.
 		iflag = opcode[4] == 0 & opcode[3] == 1;
 		jflag = opcode[4] == 1 & opcode[3] == 1 ? (opcode[0] == 1 ? 1 : (opcode[1] == 1 & zero == 1 ? 1 : (opcode[2] == 1 & neg == 1 ? 1 : 0))) : 0;
 		memoryFlag = opcode[4] & opcode[3] == 0 & opcode[0];
-		stall = opcode[4] & opcode[3] == 0 & opcode[0] & dataoutrdy == 0;
+		stall = opcode[4] & (opcode[3] == 0) & (opcode[0] | opcode[1]) & dataoutrdy == 0;
 
-		//$display($dec, "alufunc:",alufunc);
+		$display($bin, "Opcode:", opcode, $dec, "  Dataoutrdy:", dataoutrdy ,"  Stall:", stall);
 	}
 }
 
-dp System(in dataoutrdy: ns(1); in memoryIn : tc(32); out toBus : ns(11); out datainrdy : ns(1);   out targetId : ns(4); out targetAddress : ns(28)){ 
-		//in zero, neg : ns(1);   in storedata : tc(32);   out jflag, iflag : ns(1);   out alufunc : ns(3);   out a,r : tc(32)
+dp System(in dataoutrdy: ns(1); in dataout : tc(32); out cmd : ns(32); out datainrdy : ns(1); out datain : ns(28)){ 
 	sig odata : ns(32);
 	sig storeflag : ns(1);
 	sig b : tc(32);
@@ -138,8 +136,12 @@ dp System(in dataoutrdy: ns(1); in memoryIn : tc(32); out toBus : ns(11); out da
 	sig iflag : ns(1);
 	sig memoryFlag : ns(1);
 	sig stall : ns(1);
-	
-	//sig dataflag : ns(1);
+
+	sig buscmd : ns(28);
+	sig targetId : ns(4);
+
+	//sig datoutrdy : ns(1);
+
 
 	$trace(zero, "Testtraces/zero.seq");
 	$trace(neg, "Testtraces/neg.seq");
@@ -150,45 +152,44 @@ dp System(in dataoutrdy: ns(1); in memoryIn : tc(32); out toBus : ns(11); out da
 
 	use InstructionFetch(odata[11:26], jflag, stall, odata);
 	use Controller(odata[27:31], zero, neg, dataoutrdy, jflag, iflag, storeflag, memoryFlag, stall, alufunc); //, dataflag
-	use Registerfile(odata[24:26], odata[21:23], odata[18:20], storeflag, aluRes, a, b);
+	use Registerfile(odata[24:26], odata[21:23], odata[18:20], storeflag, storedata, a, b);
 
 	use Multiplexer(odata[10:20], b, iflag, r);
 	
 	use ALUFlags(a, r, alufunc, aluRes, neg, zero);
 
-	use Multiplexer2(memoryIn, aluRes, memoryFlag, storedata); //Tag resultat fra ALU'en undtagen, hvis der er snakke om en load funktion
-	// Indsæt funktionalitet til at stoppe.
+	use Multiplexer2(dataout, aluRes, memoryFlag, storedata); //Tag resultat fra ALU'en undtagen, hvis der er snakke om en load funktion
 
 	always{
-		targetId = 2;
-		targetAddress = odata[10:20];
-		datainrdy = odata[31] & odata[30] == 0 & odata[28];
-		toBus = odata[10:20];
 
-		$display($dec, "DataIn:", toBus, "  TargetID:", targetId, "  TargetAddress:", targetAddress, "  DatainRdy:", datainrdy);
+		targetId = 2;
+		buscmd = (odata[31] & (odata[30] == 0) & odata[28]) ? 0x8000000+a[0:12] : 0x0000000;
+		cmd = targetId # buscmd;
+
+		datain = (odata[31] & (odata[30] == 0) & odata[28]) ? b : a;
+
+		datainrdy = (odata[31] & odata[30] == 0) & (odata[28] | odata[27]);
+
+		$display($dec, "DataIn:", datain , $bin, "  CMD:", cmd, $dec,  "  DatainRdy:", datainrdy);
+		//$display($dec, "Dataout:", dataout, "  Dataoutrdy:", dataoutrdy);
 	}
 }
 
-dp testSys(out dataoutrdy: ns(1); out memoryIn : tc(32); in toBus : ns(11); in datainrdy : ns(1); in targetId : ns(4); in targetAddress : ns(28)) {
-		//out zero, neg : ns(1);   out storedata : tc(32);   in jflag, iflag : ns(1);   in alufunc : ns(3);   in a,r : tc(32)
-	//always{
-	//	$display($bin, "Alufunc:", alufunc,  " Jflag:", jflag,  " Iflag:", iflag, $dec,  " a:", a,  " r:", r);
-	//	$display($bin, "ToBus:", toBus);
-	//}
+dp testSys(out dataoutrdy: ns(1); out dataout : tc(32); in cmd : ns(32); in datainrdy : ns(1); in datain : ns(28)) {
 
-	sfg test_0 {dataoutrdy = 0; memoryIn = 0;}
-	sfg test_1 {dataoutrdy = 0; memoryIn = 0;}
+	sfg test_0 {dataoutrdy = 0; dataout = 1;}
+	sfg test_1 {dataoutrdy = 0; dataout = 1;}
 }
 
 // state machine to control testbench
 fsm f_testbench(testSys){
-	initial s0; // begin with state s0
+	initial s0;
 	state s1, s2, s3, s4, s5, s6, s7, s8, s9;
-	@s0 (test_0) -> s1; // run test_0 and go to s1
-	@s1 (test_1) -> s0; // run test_1 and go to s2
+	@s0 (test_0) -> s1;
+	@s1 (test_1) -> s0;
 }
 
 system program{
-	System(dataoutrdy, memoryIn, toBus, datainrdy, targetId, targetAddress); //zero, neg, storedata, jflag, iflag, storeflag, alufunc, a, r
-	testSys(dataoutrdy, memoryIn, toBus, datainrdy, targetId, targetAddress);
+	System(dataoutrdy, dataout, cmd, datainrdy, datain);
+	testSys(dataoutrdy, dataout, cmd, datainrdy, datain);
 }
