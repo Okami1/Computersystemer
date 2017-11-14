@@ -64,8 +64,13 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
   reg eight : tc(32);
   
   $trace(storesel, "Testtraces/storesel.seq");
-  $trace(two, "Testtraces/two.seq");
-  $trace(three, "Testtraces/three.seq");
+  $trace(two, "Testtraces/R1.seq");
+  $trace(three, "Testtraces/R2.seq");
+  $trace(four, "Testtraces/R3.seq");
+  $trace(five, "Testtraces/R4.seq");
+  $trace(six, "Testtraces/R5.seq");
+  $trace(seven, "Testtraces/R6.seq");
+  $trace(eight, "Testtraces/R7.seq");
   always {
     a = asel==0 ? one : 
     asel==1 ? two : 
@@ -155,14 +160,16 @@ dp CPU(
   sig targetId : ns(4);
 
   //sig datoutrdy : ns(1);
-
+  $trace(odata, "Testtraces/instruction.seq");
   $trace(zero, "Testtraces/zero.seq");
   $trace(neg, "Testtraces/neg.seq");
-
-  $trace(jflag, "Testtraces/jflag.seq");
-  $trace(alufunc, "Testtraces/alufunc.seq");
-  $trace(storeflag, "Testtraces/storeflag.seq");
-
+  $trace(memoryFlag, "Testtraces/memFlag.seq");
+  $trace(jflag, "Testtraces/jumpFlag.seq");
+  $trace(alufunc, "Testtraces/ALUFunc.seq");
+  $trace(storeflag, "Testtraces/storeFlag.seq");
+  $trace(iflag, "Testtraces/ImmediateFlag.seq");
+  $trace(stall, "Testtraces/stall.seq");
+  $trace(aluRes, "Testtraces/ALURes.seq");
   use InstructionFetch(odata[11:26], jflag, stall, odata);
   use Controller(odata[27:31], zero, neg, M_dataoutrdy, jflag, iflag, storeflag, memoryFlag, stall, alufunc); //, dataflag
   use Registerfile(odata[24:26], odata[21:23], odata[18:20], storeflag, storedata, a, b);
