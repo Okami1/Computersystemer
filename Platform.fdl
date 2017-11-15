@@ -1,5 +1,6 @@
 $option "vcd"
-
+$option "profile_toggle_alledge"
+$option "profile_display_operations"
 
 
 
@@ -63,14 +64,14 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
   reg seven : tc(32);
   reg eight : tc(32);
   
-  $trace(storesel, "Testtraces/storesel.seq");
-  $trace(two, "Testtraces/R1.seq");
-  $trace(three, "Testtraces/R2.seq");
-  $trace(four, "Testtraces/R3.seq");
-  $trace(five, "Testtraces/R4.seq");
-  $trace(six, "Testtraces/R5.seq");
-  $trace(seven, "Testtraces/R6.seq");
-  $trace(eight, "Testtraces/R7.seq");
+  //$trace(storesel, "Testtraces/storesel.seq");
+  //$trace(two, "Testtraces/R1.seq");
+  //$trace(three, "Testtraces/R2.seq");
+  //$trace(four, "Testtraces/R3.seq");
+  //$trace(five, "Testtraces/R4.seq");
+  //$trace(six, "Testtraces/R5.seq");
+  //$trace(seven, "Testtraces/R6.seq");
+  //$trace(eight, "Testtraces/R7.seq");
   always {
     a = asel==0 ? one : 
     asel==1 ? two : 
@@ -98,7 +99,7 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
     seven = storesel==6 & storeenable ? storedata : seven;
     eight = storesel==7 & storeenable ? storedata : eight;
 
-    $display($dec, "R1:", two, " R2:", three, "  R3:", four);
+    $display($dec,"Result: ", eight);
   }
 }
 
@@ -129,7 +130,7 @@ dp Controller(in opcode : ns(5); in zero, neg, dataoutrdy : ns(1); out jflag, if
     memoryFlag = opcode[4] & opcode[3] == 0 & opcode[0];
     stall = opcode[4] & ~opcode[3] & (opcode[0] | opcode[1]) & ~dataoutrdy;
 
-    $display($bin, "Opcode:", opcode,$dec, "  Dataoutrdy:", dataoutrdy ,"  Stall:", stall);
+    //$display($bin, "Opcode:", opcode,$dec, "  Dataoutrdy:", dataoutrdy ,"  Stall:", stall);
   }
 }
 
@@ -160,16 +161,16 @@ dp CPU(
   sig targetId : ns(4);
 
   //sig datoutrdy : ns(1);
-  $trace(odata, "Testtraces/instruction.seq");
-  $trace(zero, "Testtraces/zero.seq");
-  $trace(neg, "Testtraces/neg.seq");
-  $trace(memoryFlag, "Testtraces/memFlag.seq");
-  $trace(jflag, "Testtraces/jumpFlag.seq");
-  $trace(alufunc, "Testtraces/ALUFunc.seq");
-  $trace(storeflag, "Testtraces/storeFlag.seq");
-  $trace(iflag, "Testtraces/ImmediateFlag.seq");
-  $trace(stall, "Testtraces/stall.seq");
-  $trace(aluRes, "Testtraces/ALURes.seq");
+  //$trace(odata, "Testtraces/instruction.seq");
+  //$trace(zero, "Testtraces/zero.seq");
+  //$trace(neg, "Testtraces/neg.seq");
+  //$trace(memoryFlag, "Testtraces/memFlag.seq");
+  //$trace(jflag, "Testtraces/jumpFlag.seq");
+  //$trace(alufunc, "Testtraces/ALUFunc.seq");
+  //$trace(storeflag, "Testtraces/storeFlag.seq");
+  //$trace(iflag, "Testtraces/ImmediateFlag.seq");
+  //$trace(stall, "Testtraces/stall.seq");
+  //$trace(aluRes, "Testtraces/ALURes.seq");
   use InstructionFetch(odata[11:26], jflag, stall, odata);
   use Controller(odata[27:31], zero, neg, M_dataoutrdy, jflag, iflag, storeflag, memoryFlag, stall, alufunc); //, dataflag
   use Registerfile(odata[24:26], odata[21:23], odata[18:20], storeflag, storedata, a, b);
@@ -191,7 +192,7 @@ dp CPU(
 
     M_datainrdy = (odata[31] & odata[30] == 0) & (odata[28] | odata[27]);
 
-    $display($dec, "DataIn:",M_datain, "  Storeflag:", storeflag, "  Memoryflag:", memoryFlag);
+    //$display($dec, "DataIn:",M_datain, "  Storeflag:", storeflag, "  Memoryflag:", memoryFlag);
 
   }
 
