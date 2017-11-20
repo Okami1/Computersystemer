@@ -99,7 +99,7 @@ dp Registerfile(in  storesel, asel, bsel : ns(3); in storeenable : ns(1); in sto
     seven = storesel==6 & storeenable ? storedata : seven;
     eight = storesel==7 & storeenable ? storedata : eight;
 
-    $display($dec,"Result: ", eight);
+    $display($dec,"Result: ", six);
   }
 }
 
@@ -160,7 +160,6 @@ dp CPU(
   sig buscmd : ns(28);
   sig targetId : ns(4);
 
-  //sig datoutrdy : ns(1);
   ////$trace(odata, "Testtraces/instruction.seq");
   ////$trace(zero, "Testtraces/zero.seq");
   ////$trace(neg, "Testtraces/neg.seq");
@@ -182,8 +181,6 @@ dp CPU(
   use Multiplexer2(M_dataout, aluRes, memoryFlag, storedata); //Tag resultat fra ALU'en undtagen, hvis der er snakke om en load funktion
 
   always{
-    //datoutrdy = M_dataoutrdy;
-
     targetId = 2;
     buscmd = (odata[31] & (odata[30] == 0) & odata[28]) ? 0x8000000+a[0:12] : 0x0000000;
     M_cmd = targetId # buscmd;
